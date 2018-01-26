@@ -1,5 +1,8 @@
 import requests, xlrd, time, json
 
+def get_time():
+    return time.strftime('%Y-%m-%d %H:%M', time.localtime(time.time()))
+
 # 帐号密码信息读取
 def getUserInfo():
     try:
@@ -32,11 +35,13 @@ def login(user_data):
     session = requests.session()    # session对象提供Cookie的持久化和连接池功能
     login_url = 'https://www.yiban.cn/login/doLoginAjax'
     login_response = session.post(login_url, user_data)
+
     try:
         if json.loads(login_response.text)['message'] == '操作成功':
             print('Login Sucessful 登录成功')
     except:
         print('Login Failed 登录失败')
+    
     return session
 
 def send_feed(session):
@@ -44,7 +49,7 @@ def send_feed(session):
     动态发布
     '''
     feed_data = {
-        'content': 'Hello World!',
+        'content': get_time(),
         'privacy': '0',
         'dom': '.js-submit'
     }
@@ -58,7 +63,27 @@ def send_feed(session):
     except:
         print('动态发布失败')
 
+def send_topic(session):
+    data = {
+        'puid': '',    # 学院机构群id
+        'pubArea': '',    # 班级id 多个班级用列表
+        'title': get_time(),
+        'content': '<p>' + get_time() + '</p>',
+        'isNotice': 'false',
+        'dom': '.js-submit',
+    }
+
+    send_topic_url = 'http://www.yiban.cn/forum/article/addAjax'
+    send_topic_response = session.post(send_topic_url, data)
+
+    try:
+        if json.loads(send_topic_response.text)['message'] == '操作成功':
+            print('话题发布成功')
+    except:
+        print('话题发布失败')
+
 if __name__ == '__main__':
     user_data = getUserInfo()    # 获得用户信息
     session = login(user_data)    # 登录响应
-    send_feed(session)    # 发布动态
+    # send_feed(session)    # 发布动态
+    send_topic(session)    # 发布话题
