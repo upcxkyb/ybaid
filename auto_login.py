@@ -1,5 +1,11 @@
-import requests, xlrd, time, json
+import requests, xlrd, time, json, re
+from bs4 import BeautifulSoup
 
+headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36'
+}
+
+# 时间获取
 def get_time():
     return time.strftime('%Y-%m-%d %H:%M', time.localtime(time.time()))
 
@@ -44,9 +50,61 @@ def login(user_data):
     
     return session
 
+def login_mp(user_data):
+    session = requests.session()
+    login_mp_url = 'https://mp.yiban.cn/login/loginAjax'
+    login_mp_response = session.post(login_mp_url, user_data)
+    
+    pass
+
+
+def get_id():
+    pass
+
+def get_html():
+    crow_url = 'http://www.yiban.cn/'
+    try:
+        r = requests.get(crow_url, headers=headers)
+        r.raise_for_status()
+        r.encoding = r.apparent_encoding
+        return r.text
+    except:
+        print('爬取失败')
+    
+def get_topic_title(num, html):
+    soup = BeautifulSoup(html, 'html.parser')
+    figcaptions = soup.find_all('figcaption', 'pull-left')
+    univs = []
+    titles = []
+    for figcaption in figcaptions:
+        a = figcaption.find('a')
+        span = a.find('span')
+        if span == None:
+            continue
+        univs.append(span.b.string)
+        title_str = re.search(r'</b>(.*?)</span>', str(span))[0]    # 正则匹配
+        tstr = re.sub(r'<[^>]+>', '', title_str)    # 去除HTML标签
+        titles.append(tstr)
+
+    return '【转】' + univs[num] + '-' + titles[num]
+
+def get_topic_content(num, html):
+    soup = BeautifulSoup(html, 'html.parser')
+    figcaptions = soup.find_all('figcaption', 'pull-left')
+    contents = []
+    for figcaption in figcaptions:
+        p = figcaption.find('p')
+        if p == None:
+            continue
+        tstr = re.sub(r'<[^>]+>', '', str(p))
+        contents.append(tstr)
+    
+    return contents[num]
+
+
 def send_feed(session):
     '''
-    动态发布
+    发布动态
     '''
     feed_data = {
         'content': get_time(),
@@ -63,12 +121,15 @@ def send_feed(session):
     except:
         print('动态发布失败')
 
-def send_topic(session):
+def send_topic(session, num, html):
+    '''
+    发布话题
+    '''
     data = {
-        'puid': '',    # 学院机构群id
-        'pubArea': '',    # 班级id 多个班级用列表
-        'title': get_time(),
-        'content': '<p>' + get_time() + '</p>',
+        'puid': '5572667',    # 学院机构群id
+        'pubArea': '232753,232751,232749,232755,232759,232757,232761,232777,232779,232781,233325,223295,223311,223331,223391,223397,223399,223393,223333,223313,223305,223309,223327,223363,223395,223401,223403,228957,228953,228959,232763,232767,229425,228955,232769,232775,234391,234397,234399,234393,232771,232773,234389,234401,234395,330093,303274,234419,234413,234407,234405,234411,234417,303272,330091,303270,234415,234409,234403,330103,330097,330099,330095,330101,334923,334929,334935,334937,334931,334925,330087,334927,334933,411813,411815,414633,414641,414647,414653,414659,414661,414655,414649,414643,414637,414639,414645,414651,414657,414663,429159,429161,429163,429165,429167,429169',    # 班级id 多个班级用列表
+        'title': get_topic_title(num, html),
+        'content': '<p>' + get_topic_content(num, html) + '</p>',
         'isNotice': 'false',
         'dom': '.js-submit',
     }
@@ -78,12 +139,54 @@ def send_topic(session):
 
     try:
         if json.loads(send_topic_response.text)['message'] == '操作成功':
-            print('话题发布成功')
+            print('话题' + (num+1) + '发布成功')
     except:
-        print('话题发布失败')
+        print('话题' + (num+1) + '发布失败')
+
+def send_vote(session):
+    '''
+    发布投票
+    '''
+    data = {
+        'puid': '5572667',    # 学院机构群
+        'scope_ids': '232753,232751,232749,232755,232759,232757,232761,232777,232779,232781,233325,223295,223311,223331,223391,223397,223399,223393,223333,223313,223305,223309,223327,223363,223395,223401,223403,228957,228953,228959,232763,232767,229425,228955,232769,232775,234391,234397,234399,234393,232771,232773,234389,234401,234395,330093,303274,234419,234413,234407,234405,234411,234417,303272,330091,303270,234415,234409,234403,330103,330097,330099,330095,330101,334923,334929,334935,334937,334931,334925,330087,334927,334933,411813,411815,414633,414641,414647,414653,414659,414661,414655,414649,414643,414637,414639,414645,414651,414657,414663,429159,429161,429163,429165,429167,429169',    # 班级
+        'title': get_time(),    # 投票标题
+        'subjectTxt': get_time() + ' 你做了什么？',    # 投票说明
+        'subjectPic': '',    # 投票图片 默认为无
+        'options_num': '3',    # 投票选项数量
+        'scopeMin': '1',
+        'scopeMax': '1',
+        'minimum': '1',
+        'voteValue': '2019-12-27 14:00',    # 投票结束时间
+        'voteKey': '2',
+        'public_type': '1',
+        'isAnonymous': '2',    # 是否匿名投票 1为不匿名 2为匿名
+        'votelsCaptcha': '0',    # 投票时是否开启验证码 0为关闭
+        'istop': '1',    # 是否置顶 1为不置顶 2为置顶
+        'sysnotice': '2',
+        'isshare': '1',
+        'rsa': '1',
+        'dom': '.js-submit',
+        # 'group_id': '223395',
+        'subjectTxt_1': '学习',    # 投票选项1文本内容
+        'subjectTxt_2': '学习',    # 投票选项2文本内容
+        'subjectTxt_3': '学习'    # 投票选项3文本内容
+    }
+
+    send_vote_url = 'http://www.yiban.cn/vote/vote/add'
+    send_vote_response = session.post(send_vote_url, data=data)
+
+    try:
+        if json.loads(send_vote_response.text)['message'] == '操作成功':
+            print('投票发布成功')
+    except:
+        print('投票发布失败')
 
 if __name__ == '__main__':
     user_data = getUserInfo()    # 获得用户信息
     session = login(user_data)    # 登录响应
+    crow_html = get_html()    # 爬取相应页面内容
     # send_feed(session)    # 发布动态
-    send_topic(session)    # 发布话题
+    # send_topic(session, 0, crow_html)    # 发布话题1
+    # send_topic(session, 1, crow_html)    # 发布话题2
+    # send_vote(session)    # 发布投票
