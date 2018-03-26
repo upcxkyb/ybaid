@@ -154,6 +154,34 @@ def get_news_odd_content(num, html):
 
     return '<p style="text-align: center;"><a href="' + hrefs[num] + '" target="_blank" title="' + '【转】' + univs[num] + '-' + titles[num] + '" style="text-decoration: underline; font-size: 16px; font-family: 宋体, SimSun; color: rgb(0, 0, 0);"><span style="font-size: 16px; font-family: 宋体, SimSun; color: rgb(0, 0, 0);">' + '【转】' + univs[num] + '-' + titles[num] + '</span></a><br/></p>'
 
+def get_upc_news_title(html, num):
+    '''
+    获取学校主页石大要闻标题
+    '''
+    soup = BeautifulSoup(html, 'html.parser')
+    div = soup.find('div', 'news_con')
+    aes = div.find_all('a')
+    titles = []
+    for a in aes:
+        titles.append(a['title'])
+    
+    return '【石大要闻】' + titles[num]
+
+def get_upc_news_content(html, num):
+    '''
+    构造内容
+    '''
+    soup = BeautifulSoup(html, 'html.parser')
+    div = soup.find('div', 'news_con')
+    aes = div.find_all('a')
+    titles = []
+    hrefs = []
+    for a in aes:
+        titles.append(a['title'])
+        hrefs.append(a['href'])
+    
+    return '<p style="text-align: center;"><a href="' + hrefs[num] + '" target="_blank" title="' + '【石大要闻】' + titles[num] + '" style="text-decoration: underline; font-size: 16px; font-family: 宋体, SimSun; color: rgb(0, 0, 0);"><span style="font-size: 16px; font-family: 宋体, SimSun; color: rgb(0, 0, 0);">' + '【石大要闻】' + titles[num] + '</span></a><br/></p>'
+
 def get_upcaca_title(html, num):
     '''
     获取学校主页标题
