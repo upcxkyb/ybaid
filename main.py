@@ -62,7 +62,7 @@ def get_id():
     pass
 
 def get_html():
-    crow_url = 'http://www.yiban.cn/'
+    crow_url = 'http://www.upc.edu.cn/'
     try:
         r = requests.get(crow_url, headers=headers)
         r.raise_for_status()
@@ -89,7 +89,7 @@ def get_topic_title(num, html):
         tstr = re.sub(r'<[^>]+>', '', title_str)    # 去除HTML标签
         titles.append(tstr)
 
-    return '【转】' + univs[num] + '-' + titles[num]
+    return '【他山之石】' + univs[num] + '-' + titles[num]
 
 def get_topic_content(num, html):
     '''
@@ -130,7 +130,7 @@ def get_news_odd_title(num, html):
         tstr = re.sub(r'<[^>]+>', '', title_str)    # 去除HTML标签
         titles.append(tstr)
     
-    return '【转】' + univs[num] + '-' + titles[num]
+    return '【他山之石】' + univs[num] + '-' + titles[num]
 
 def get_news_odd_content(num, html):
     '''
@@ -153,6 +153,34 @@ def get_news_odd_content(num, html):
         titles.append(tstr)
 
     return '<p style="text-align: center;"><a href="' + hrefs[num] + '" target="_blank" title="' + '【转】' + univs[num] + '-' + titles[num] + '" style="text-decoration: underline; font-size: 16px; font-family: 宋体, SimSun; color: rgb(0, 0, 0);"><span style="font-size: 16px; font-family: 宋体, SimSun; color: rgb(0, 0, 0);">' + '【转】' + univs[num] + '-' + titles[num] + '</span></a><br/></p>'
+
+def get_upcaca_title(html, num):
+    '''
+    获取学校主页标题
+    '''
+    soup = BeautifulSoup(html, 'html.parser')
+    div = soup.find('div', 'aca_news_con')
+    aes = div.find_all('a')
+    titles = []
+    for a in aes:
+        titles.append(a['title'])
+    
+    return '【学术石大】' + titles[num]
+
+def get_upcaca_content(html, num):
+    '''
+    构造内容
+    '''
+    soup = BeautifulSoup(html, 'html.parser')
+    div = soup.find('div', 'aca_news_con')
+    aes = div.find_all('a')
+    titles = []
+    hrefs = []
+    for a in aes:
+        titles.append(a['title'])
+        hrefs.append(a['href'])
+    
+    return '<p style="text-align: center;"><a href="' + hrefs[num] + '" target="_blank" title="' + '【学术石大】' + titles[num] + '" style="text-decoration: underline; font-size: 16px; font-family: 宋体, SimSun; color: rgb(0, 0, 0);"><span style="font-size: 16px; font-family: 宋体, SimSun; color: rgb(0, 0, 0);">' + '【学术石大】' + titles[num] + '</span></a><br/></p>'
 
 def send_feed(session):
     '''
@@ -180,8 +208,8 @@ def send_class_topic(session, num, html):
     data = {
         'puid': '5572667',    # 学院机构群id
         'pubArea': '232753,232751,232749,232755,232759,232757,232761,232777,232779,232781,233325,223295,223311,223331,223391,223397,223399,223393,223333,223313,223305,223309,223327,223363,223395,223401,223403,228957,228953,228959,232763,232767,229425,228955,232769,232775,234391,234397,234399,234393,232771,232773,234389,234401,234395,330093,303274,234419,234413,234407,234405,234411,234417,303272,330091,303270,234415,234409,234403,330103,330097,330099,330095,330101,334923,334929,334935,334937,334931,334925,330087,334927,334933,411813,411815,414633,414641,414647,414653,414659,414661,414655,414649,414643,414637,414639,414645,414651,414657,414663,429159,429161,429163,429165,429167,429169',    # 班级id 多个班级用列表
-        'title': get_news_odd_title(num, html),
-        'content': get_news_odd_content(num, html),
+        'title': get_upcaca_title(html, num),
+        'content': get_upcaca_content(html, num),
         'isNotice': 'false',
         'dom': '.js-submit'
     }
@@ -241,8 +269,8 @@ def send_institute_topic(session, num, html):
     data = {
         'puid': '5370538',
         'pubArea': '218963',
-        'title': get_news_odd_title(num, html),
-        'content': get_news_odd_content(num, html),
+        'title': get_upcaca_title(html, num),
+        'content': get_upcaca_content(html, num),
         'Sections_id': '0',
         'isNotice': 'false',
         'dom': '.js-submit'
