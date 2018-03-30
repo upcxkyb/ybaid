@@ -50,12 +50,35 @@ def login(user_data):
     
     return session
 
-def login_mp(user_data):
+def login_mp(session):
+    '''
     session = requests.session()
     login_mp_url = 'https://mp.yiban.cn/login/loginAjax'
-    login_mp_response = session.post(login_mp_url, user_data)
+    login_mp_response = session.post(login_mp_url, data=user_data, headers=headers)
     
-    pass
+    data = {'uid': '537058'}    # 机构群超级管理员登录
+    login_mp_choice_url = 'https://mp.yiban.cn/login/choiceAjax'
+    login_mp_choice_response = session.post(login_mp_choice_url, data=data, headers=headers)
+    '''
+
+    uu = 'http://mp.yiban.cn/backend/tasks'
+
+    data = {'id': '5572667'}
+    mp_index_url = 'http://www.yiban.cn/manage/Gforum/push?'
+    query_params = {
+        'id': '37508180',    # 变化，找不到id
+        'position': '2',
+        'channel_id': '70922',
+        'group_id': '218963',
+        'article_id': '36677502'    # 变化
+    }
+    url = 'http://www.yiban.cn/Manage/Gforum/index/group_id/218963/user_id/5370538?'
+    pa = {'is_notice': '2'}
+    html = session.get(mp_index_url, params=pa, headers=headers)
+    print(html)
+
+    # 本代码无用
+
 
 
 def get_id():
