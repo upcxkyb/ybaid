@@ -1,5 +1,6 @@
-import requests, xlrd, time, json, re
+import requests, xlrd, time, json, re, configparser, random
 from bs4 import BeautifulSoup
+from urllib.parse import urlparse
 
 headers = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36'
@@ -10,6 +11,22 @@ def get_time():
     return time.strftime('%Y-%m-%d %H:%M', time.localtime(time.time()))
 
 # 帐号密码信息读取
+def getUserInfo():
+    try:
+        config = configparser.ConfigParser()
+        config.read('info.ini')
+        
+        user_data = {
+            'account': config['Information']['account'],
+            'password': config['Information']['password'],
+            'captcha': None
+        }
+
+        print('读取用户数据成功')
+        return user_data
+    except:
+        print('读取用户数据失败')
+'''
 def getUserInfo():
     try:
         data = xlrd.open_workbook('data.xlsx')    # 读取工作簿数据 该工作簿存放帐号和密码信息 data.xlsx目前只存一组信息
@@ -33,6 +50,7 @@ def getUserInfo():
         print('读取用户数据失败')
 
     return user_data
+'''
 
 def login(user_data):
     '''
@@ -252,15 +270,15 @@ def send_feed(session):
     except:
         print('动态发布失败')
 
-def send_class_topic(session, num, html):
+def send_class_topic(session, title, content):
     '''
     发布班级群话题
     '''
     data = {
         'puid': '5572667',    # 学院机构群id
         'pubArea': '232753,232751,232749,232755,232759,232757,232761,232777,232779,232781,233325,223295,223311,223331,223391,223397,223399,223393,223333,223313,223305,223309,223327,223363,223395,223401,223403,228957,228953,228959,232763,232767,229425,228955,232769,232775,234391,234397,234399,234393,232771,232773,234389,234401,234395,330093,303274,234419,234413,234407,234405,234411,234417,303272,330091,303270,234415,234409,234403,330103,330097,330099,330095,330101,334923,334929,334935,334937,334931,334925,330087,334927,334933,411813,411815,414633,414641,414647,414653,414659,414661,414655,414649,414643,414637,414639,414645,414651,414657,414663,429159,429161,429163,429165,429167,429169',    # 班级id 多个班级用列表
-        'title': get_upcaca_title(html, num),
-        'content': get_upcaca_content(html, num),
+        'title': title,
+        'content': content,
         'isNotice': 'false',
         'dom': '.js-submit'
     }
@@ -313,15 +331,15 @@ def send_class_vote(session):
     except:
         print('班级群投票发布失败')
 
-def send_institute_topic(session, num, html):
+def send_institute_topic(session, title, content):
     '''
     发布机构群话题
     '''
     data = {
         'puid': '5370538',
         'pubArea': '218963',
-        'title': get_upcaca_title(html, num),
-        'content': get_upcaca_content(html, num),
+        'title': title,
+        'content': content,
         'Sections_id': '0',
         'isNotice': 'false',
         'dom': '.js-submit'
@@ -341,15 +359,37 @@ def send_institute_vote(session):
 
 
 def basic_egpa(session, html):
-    send_class_topic(session, 0, html)    # 发布话题1
+    upc_news_title_1 = get_upc_news_title(html, 0)
+    upc_news_content_1 = get_upc_news_content(html, 0)
+    upc_aca_title_1 = get_upcaca_title(html, 0)
+    upc_aca_content_1 = get_upcaca_content(html, 0)
+    upc_news_title_2 = get_upc_news_title(html, 1)
+    upc_news_content_2 = get_upc_news_content(html, 1)
+    upc_aca_title_2 = get_upcaca_title(html, 1)
+    upc_aca_content_2 = get_upcaca_content(html, 1)
+
+    send_class_topic(session, upc_news_title_1, upc_news_content_1)    # 发布新闻话题1
+    send_class_topic(session, upc_aca_title_1, upc_aca_content_1)    # 发布学术话题1
     send_class_vote(session)    # 发布投票
-    send_class_topic(session, 1, html)    # 发布话题2
+    send_class_topic(session, upc_news_title_2, upc_news_content_2)    # 发布新闻话题2
+    send_class_topic(session, upc_aca_title_2, upc_aca_content_2)    # 发布学术话题2
     send_class_vote(session)    # 发布投票
 
 def build_gpa(session, html):
-    send_institute_topic(session, 0, html)    # 发布机构群话题1
+    upc_news_title_1 = get_upc_news_title(html, 0)
+    upc_news_content_1 = get_upc_news_content(html, 0)
+    upc_aca_title_1 = get_upcaca_title(html, 0)
+    upc_aca_content_1 = get_upcaca_content(html, 0)
+    upc_news_title_2 = get_upc_news_title(html, 1)
+    upc_news_content_2 = get_upc_news_content(html, 1)
+    upc_aca_title_2 = get_upcaca_title(html, 1)
+    upc_aca_content_2 = get_upcaca_content(html, 1)
+
+    send_institute_topic(session, upc_news_title_1, upc_news_content_1)    # 发布机构群新闻话题1
+    send_institute_topic(session, upc_aca_title_1, upc_aca_content_1)    # 发布机构群学术话题1
     # send_institute_vote(session)    # 发布机构群投票
-    send_institute_topic(session, 1, html)    # 发布机构群话题2
+    send_institute_topic(session, upc_news_title_2, upc_news_content_2)    # 发布机构群新闻话题2
+    send_institute_topic(session, upc_aca_title_2, upc_aca_content_2)    # 发布机构群学术话题2
     # send_institute_vote(session)    # 发布机构群投票
 
 
@@ -378,12 +418,42 @@ def page_view(num):
     except:
         print('失败 ' + str(num))
 
+def getArticleIds(session):
+    institute_url = 'http://www.yiban.cn/Newgroup/indexOrg/group_id/218963/puid/5370538'
+    institute_html = session.get(institute_url, headers=headers).text
+
+    institute_soup = BeautifulSoup(institute_html, 'html.parser')
+    divs = institute_soup.find_all('div', 'lfi_title')
+    article_ids = []
+    for div in divs:
+        article_url = div.find('a')['href']
+        article_id = re.findall('\d+', str(article_url))[3]    # 选择arricle_id
+        article_ids.append(article_id)
+
+    return article_ids
+
+def up_article(session, article_id):
+    up_url = 'http://www.yiban.cn/forum/article/upArticleAjax'
+    up_data = {
+        'article_id': article_id,
+        'channel_id': '70922',    # 不变
+        'puid': '5370538'    # 不变
+    }
+    session.post(up_url, data=up_data, headers=headers)
+
 if __name__ == '__main__':
     user_data = getUserInfo()    # 获得用户信息
     session = login(user_data)    # 登录响应
     crowed_html = get_html()    # 爬取相应页面内容
-    
+
+    '''
+    # 点赞模块
+    article_ids = getArticleIds(session)
+    for article_id in article_ids:
+        up_article(session, article_id)
+    '''
     # send_feed(session)    # 发布动态
     basic_egpa(session, crowed_html)
     build_gpa(session, crowed_html)
     print('完成时间 ' + get_time())
+    
