@@ -446,14 +446,14 @@ if __name__ == '__main__':
     session = login(user_data)    # 登录响应
     crowed_html = get_html()    # 爬取相应页面内容
 
-    '''
+    # send_feed(session)    # 发布动态
+    basic_egpa(session, crowed_html)
+    build_gpa(session, crowed_html)
+    
     # 点赞模块
     article_ids = getArticleIds(session)
     for article_id in article_ids:
         up_article(session, article_id)
-    '''
-    # send_feed(session)    # 发布动态
-    basic_egpa(session, crowed_html)
-    build_gpa(session, crowed_html)
+    
     print('完成时间 ' + get_time())
     
