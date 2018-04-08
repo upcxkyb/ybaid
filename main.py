@@ -1,40 +1,244 @@
-import requests, xlrd, time, json, re, configparser, random
+import requests, xlrd, time, json, re, configparser, random, os
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
+from base64 import b64encode
+from Cryptodome.Cipher import PKCS1_v1_5
+from Cryptodome.PublicKey import RSA
+from aip import AipOcr
+from PIL import Image
 
+######################################## 登录相关模块 ########################################
 headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36'
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36',
+    'X-Requested-With': 'XMLHttpRequest'
 }
+
 
 # 时间获取
 def get_time():
     return time.strftime('%Y-%m-%d %H:%M', time.localtime(time.time()))
+def get_time2():
+    return time.strftime('%Y-%m-%d-%H-%M', time.localtime(time.time()))
 
-# 帐号密码信息读取
-def getUserInfo():
+'''
+模拟 JSEncrypt 加密
+加密方式为 PKCS1_v1_5
+'''
+
+
+def rsaEncrypt(password, key):
+    cipher = PKCS1_v1_5.new(RSA.importKey(key))
+    return b64encode(cipher.encrypt(password.encode()))
+
+
+# 获取验证码的URL,和时间有关
+def getCaptchaURL():
+    format_time = time.strftime("%a %b %d %Y %H:%M:%S", time.localtime())
+    time_list = format_time.split(' ')
+    time_string = '%20'.join(time_list)
+    captcha_url = 'https://www.yiban.cn/captcha/index?' + time_string + '%20GMT+0800%20(%E4%B8%AD%E5%9B%BD%E6%A0%87%E5%87%86%E6%97%B6%E9%97%B4)'
+    return captcha_url
+
+
+# 帐号密码信息读取,密码采用加密方式传输
+def getUserInfo(captcha, keytime, key):
     try:
         config = configparser.ConfigParser()
         config.read('info.ini')
-        
+        raw_psw = config['Information']['password']
+        Psw = rsaEncrypt(raw_psw, key)
         user_data = {
             'account': config['Information']['account'],
-            'password': config['Information']['password'],
-            'captcha': None
+            'password': Psw,
+            'captcha': captcha,
+            'keysTime': keytime
         }
 
         print('读取用户数据成功')
         return user_data
     except:
         print('读取用户数据失败')
+
+
+######################################## 验证码本地处理模块 ########################################
+
+# 二值化图片，threshold为阈值
+def get_bin_table(threshold=110):
+    """
+    获取灰度转二值的映射table
+    :param threshold:
+    :return:
+    """
+    table = []
+    for i in range(256):
+        if i < threshold:
+            table.append(0)
+        else:
+            table.append(1)
+
+    return table
+
+
+# 九宫格降噪法
+def sum_9_region(img, x, y):
+    """
+    9邻域框,以当前点为中心的田字框,黑点个数
+    :param x:
+    :param y:
+    :return:
+    """
+    # todo 判断图片的长宽度下限
+    cur_pixel = img.getpixel((x, y))  # 当前像素点的值
+    width = img.width
+    height = img.height
+
+    if cur_pixel == 1:  # 如果当前点为白色区域,则不统计邻域值
+        return 0
+
+    if y == 0:  # 第一行
+        if x == 0:  # 左上顶点,4邻域
+            # 中心点旁边3个点
+            sum = cur_pixel \
+                  + img.getpixel((x, y + 1)) \
+                  + img.getpixel((x + 1, y)) \
+                  + img.getpixel((x + 1, y + 1))
+            return 4 - sum
+        elif x == width - 1:  # 右上顶点
+            sum = cur_pixel \
+                  + img.getpixel((x, y + 1)) \
+                  + img.getpixel((x - 1, y)) \
+                  + img.getpixel((x - 1, y + 1))
+
+            return 4 - sum
+        else:  # 最上非顶点,6邻域
+            sum = img.getpixel((x - 1, y)) \
+                  + img.getpixel((x - 1, y + 1)) \
+                  + cur_pixel \
+                  + img.getpixel((x, y + 1)) \
+                  + img.getpixel((x + 1, y)) \
+                  + img.getpixel((x + 1, y + 1))
+            return 6 - sum
+    elif y == height - 1:  # 最下面一行
+        if x == 0:  # 左下顶点
+            # 中心点旁边3个点
+            sum = cur_pixel \
+                  + img.getpixel((x + 1, y)) \
+                  + img.getpixel((x + 1, y - 1)) \
+                  + img.getpixel((x, y - 1))
+            return 4 - sum
+        elif x == width - 1:  # 右下顶点
+            sum = cur_pixel \
+                  + img.getpixel((x, y - 1)) \
+                  + img.getpixel((x - 1, y)) \
+                  + img.getpixel((x - 1, y - 1))
+
+            return 4 - sum
+        else:  # 最下非顶点,6邻域
+            sum = cur_pixel \
+                  + img.getpixel((x - 1, y)) \
+                  + img.getpixel((x + 1, y)) \
+                  + img.getpixel((x, y - 1)) \
+                  + img.getpixel((x - 1, y - 1)) \
+                  + img.getpixel((x + 1, y - 1))
+            return 6 - sum
+    else:  # y不在边界
+        if x == 0:  # 左边非顶点
+            sum = img.getpixel((x, y - 1)) \
+                  + cur_pixel \
+                  + img.getpixel((x, y + 1)) \
+                  + img.getpixel((x + 1, y - 1)) \
+                  + img.getpixel((x + 1, y)) \
+                  + img.getpixel((x + 1, y + 1))
+
+            return 6 - sum
+        elif x == width - 1:  # 右边非顶点
+            # print('%s,%s' % (x, y))
+            sum = img.getpixel((x, y - 1)) \
+                  + cur_pixel \
+                  + img.getpixel((x, y + 1)) \
+                  + img.getpixel((x - 1, y - 1)) \
+                  + img.getpixel((x - 1, y)) \
+                  + img.getpixel((x - 1, y + 1))
+
+            return 6 - sum
+        else:  # 具备9领域条件的
+            sum = img.getpixel((x - 1, y - 1)) \
+                  + img.getpixel((x - 1, y)) \
+                  + img.getpixel((x - 1, y + 1)) \
+                  + img.getpixel((x, y - 1)) \
+                  + cur_pixel \
+                  + img.getpixel((x, y + 1)) \
+                  + img.getpixel((x + 1, y - 1)) \
+                  + img.getpixel((x + 1, y)) \
+                  + img.getpixel((x + 1, y + 1))
+            return 9 - sum
+
+
+def remove_noise_pixel(img, noise_point_list):
+    """
+    根据噪点的位置信息，消除二值图片的黑点噪声
+    :type img:Image
+    :param img:
+    :param noise_point_list:
+    :return:
+    """
+    for item in noise_point_list:
+        img.putpixel((item[0], item[1]), 1)
+
+
+# 图片降噪核心算法
+def captchaDenoise():
+    image = Image.open('rawcap.png')
+    imgry = image.convert('L')  # 转化为灰度图
+    table = get_bin_table()
+    img_gray = imgry.point(table, '1')
+    print('验证码降噪-二值化完成')
+    # 九宫格去噪点操作
+    width = img_gray.width
+    height = img_gray.height
+    noise_point_list = []
+    for i in range(0, width):
+        for j in range(0, height):
+            num = sum_9_region(img_gray, i, j)
+            if (0 < num < 4) and img_gray.getpixel((i, j)) == 0:  # 找到孤立点
+                pos = (i, j)  #
+                noise_point_list.append(pos)
+    remove_noise_pixel(img_gray, noise_point_list)
+    print('去除噪点完成')
+    filename = get_time2() + '.png'
+    img_gray.save(filename)
+    print('新验证码保存本地完成')
+    return filename
+
+
+######################################## 百度API识别验证码模块 ########################################
+def captcha_recon(filename):
+    APP_ID = '11058605'
+    API_KEY = 'aGc6HEbsdeF7xmRYfp3t8mES'
+    SECRET_KEY = 'hggXcZ7HCnEEdt5KMtnB1YPGEVElMIwL'
+    client = AipOcr(APP_ID, API_KEY, SECRET_KEY)
+    with open(filename, 'rb') as fp:
+        image = fp.read()
+    options = {
+        'detect_direction': 'true',
+        'language_type': 'CHN_ENG',
+    }
+    response = client.basicGeneral(image, options)
+    try:
+        return response['words_result'][0]['words']
+    except:
+        return ''
+
+
 '''
 def getUserInfo():
     try:
         data = xlrd.open_workbook('data.xlsx')    # 读取工作簿数据 该工作簿存放帐号和密码信息 data.xlsx目前只存一组信息
         table = data.sheets()[0]    # 读取工作簿中的工作表数据 默认为第一个工作表 下标为0
-        
+
         nrows = table.nrows    # 保存工作表的有效行数
         ncols = table.ncols    # 保存工作表的有效列数
-        
+
         # 读取xlsx文件的时候 python自动识别数字并转换为浮点数 但我们实际需要的是文本 这里需要进行操作
         account = str((int)(table.cell(0,0).value))    # 去除浮点 转换为文本 即字符串 
         password = table.cell(0,1).value    # 这里python会自动识别成文本进行保存 因此不需要处理
@@ -52,20 +256,44 @@ def getUserInfo():
     return user_data
 '''
 
-def login(user_data):
+
+def login():
     '''
     登录
     '''
-    session = requests.session()    # session对象提供Cookie的持久化和连接池功能
+    base_url = 'https://www.yiban.cn/login'
     login_url = 'https://www.yiban.cn/login/doLoginAjax'
-    login_response = session.post(login_url, user_data)
-
-    try:
-        if json.loads(login_response.text)['message'] == '操作成功':
-            print('Login Sucessful 登录成功')
-    except:
-        print('Login Failed 登录失败')
-    
+    session = requests.session()  # session对象提供Cookie的持久化和连接池功能
+    # 模拟登录到网页
+    LoginPage = session.get(base_url, headers=headers, timeout=10)
+    # 查找静态页面中加密方式，验证方式
+    print('模拟登录成功')
+    RsaKey = re.search(r'data-keys=\'([\s\S]*?)\'', LoginPage.text).group(1)
+    KeysTime = re.search(r'data-keys-time=\'(.*?)\'', LoginPage.text).group(1)
+    # 无验证码登录测试
+    user_data = getUserInfo(None, KeysTime, RsaKey)  # 获得用户信息
+    login_response = session.post(login_url, headers=headers, data=user_data, timeout=10)
+    if json.loads(login_response.text)['message'] == '操作成功':
+        print('Login Sucessful 登录成功')
+    else:
+        print('Login Failed 无验证码状态登录失败，正在尝试使用验证码自动化登录')
+        while 1:
+            captchaURL = getCaptchaURL()
+            cap_img = session.get(captchaURL)
+            with open("rawcap.png", 'wb') as fp:
+                fp.write(cap_img.content)
+            file_name = captchaDenoise()
+            cap_text = captcha_recon(file_name)
+            if cap_text == '':
+                continue
+            print('验证码是： '+cap_text)
+            os.remove(file_name)
+            time.sleep(1)
+            data_c = getUserInfo(cap_text, KeysTime, RsaKey)
+            login_response = session.post(login_url, headers=headers, data=data_c, timeout=10)
+            if json.loads(login_response.text)['message'] == '操作成功':
+                print('Login Sucessful 含验证码登录成功')
+                break
     return session
 
 def login_mp(session):
@@ -442,8 +670,7 @@ def up_article(session, article_id):
     session.post(up_url, data=up_data, headers=headers)
 
 if __name__ == '__main__':
-    user_data = getUserInfo()    # 获得用户信息
-    session = login(user_data)    # 登录响应
+    session = login()    # 登录响应
     crowed_html = get_html()    # 爬取相应页面内容
 
     # send_feed(session)    # 发布动态
@@ -456,4 +683,3 @@ if __name__ == '__main__':
         up_article(session, article_id)
     
     print('完成时间 ' + get_time())
-    
