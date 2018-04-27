@@ -190,7 +190,7 @@ def remove_noise_pixel(img, noise_point_list):
 
 # 图片降噪核心算法
 def captchaDenoise():
-    image = Image.open('rawcap.png')
+    image = Image.open('/root/ybaid/rawcap.png')    # 服务器环境下需要更改路径为绝对路径 而不是相对路径
     imgry = image.convert('L')  # 转化为灰度图
     table = get_bin_table()
     img_gray = imgry.point(table, '1')
@@ -207,7 +207,7 @@ def captchaDenoise():
                 noise_point_list.append(pos)
     remove_noise_pixel(img_gray, noise_point_list)
     print('去除噪点完成')
-    filename = get_time2() + '.png'
+    filename = '/root/ybaid/' + get_time2() + '.png'
     img_gray.save(filename)
     print('新验证码保存本地完成')
     return filename
@@ -282,7 +282,7 @@ def login():
         while 1:
             captchaURL = getCaptchaURL()
             cap_img = session.get(captchaURL)
-            with open("rawcap.png", 'wb') as fp:
+            with open("/root/ybaid/rawcap.png", 'wb') as fp:    # 服务器下需要更改路径为绝对路径
                 fp.write(cap_img.content)
             file_name = captchaDenoise()
             cap_text = captcha_recon(file_name)
@@ -769,7 +769,7 @@ def send_auto_html(session, html):
                 if s != '':
                     post_content = post_content + s
         '''
-        time.sleep(5)
+        time.sleep(10)
         tt = '【易信快讯】' + article_titles[i]
 
         #send_class_topic(session, tt, post_content)    # 测试代码
@@ -785,8 +785,8 @@ if __name__ == '__main__':
     send_auto_html(session, upc_auto_html)
 
     # send_feed(session)    # 发布动态
-    #basic_egpa(session, upc_html)
-    #build_gpa(session, upc_html)
+    basic_egpa(session, upc_html)
+    build_gpa(session, upc_html)
     
     # 点赞模块
     article_ids = getArticleIds(session)
