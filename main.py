@@ -19,6 +19,8 @@ def get_time():
     return time.strftime('%Y-%m-%d %H:%M', time.localtime(time.time()))
 def get_time2():
     return time.strftime('%Y-%m-%d-%H-%M', time.localtime(time.time()))
+def get_month_day_time():
+    return time.strftime('%m-%d', time.localtime(time.time()))
 
 '''
 模拟 JSEncrypt 加密
@@ -330,8 +332,7 @@ def login_mp(session):
 def get_id():
     pass
 
-def get_html():
-    crow_url = 'http://www.upc.edu.cn/'
+def get_html(crow_url):
     try:
         r = requests.get(crow_url, headers=headers)
         r.raise_for_status()
@@ -669,17 +670,127 @@ def up_article(session, article_id):
     }
     session.post(up_url, data=up_data, headers=headers)
 
+def send_auto_html(session, html):
+    ariticle_source_url = 'http://auto.upc.edu.cn'
+    soup = BeautifulSoup(html, 'html.parser')
+    article_times = soup.find_all(style='white-space:nowrap') # 找到存放时间信息的标签
+    article_hrefs = []
+    article_titles = []
+    today_time = get_month_day_time()
+
+    for article_time in article_times:
+        # 过滤时间 测试时删除即可 只爬取当天的文章 如果之前的没有爬 只需注释掉该代码即可
+        if today_time != article_time:
+            break
+        td_time = article_time.parent    # 存放时间信息标签的父节点
+        td_a = td_time.previous_sibling.previous_sibling
+        a = td_a.a    # 系列
+        article_hrefs.append(a['href'])
+        article_titles.append(a['title'])
+
+    # 基础标签 图片+图片标题+内容+作者
+    img_tag = '<p style="font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255); text-align: center;"><img src="http://yfs01.fs.yiban.cn/web/5572667/catch/363d222917ce66f4f896ca52fc810cd5.jpg" style="float:none;opacity:1;" alt="upc_xkyb.jpg"/></p>'
+    img_title_tag = '<p style="font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255); text-align: center;"><span style="font-family: 宋体, SimSun; font-size: 14px; color: rgb(0, 0, 0);">图片标题</span></p>'
+    content_tag = '<p style="font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255); text-align: left; text-indent: 2em;"><span style="color: rgb(0, 0, 0); font-family: 宋体, SimSun; font-size: 16px;">信控易班工作站</span></p>'
+    autor_tag = '<p style="font-size: 14px; white-space: normal; background-color: rgb(255, 255, 255); text-align: right;"><span style="font-size: 16px; font-family: 宋体, SimSun; color: rgb(0, 0, 0);">【作者：信控易班工作站】</span><br/></p>'
+
+    for i in range(2, len(article_hrefs)):
+        article_html = get_html(ariticle_source_url + article_hrefs[i])
+        article_soup = BeautifulSoup(article_html, 'html.parser')
+        text = article_soup.find('div', 'Article_Content')
+        ps = text.find_all('p')
+        imgs = []    # 图片链接获取
+        img_titles = []    # 图片标题
+        contents = []    # 文章内容 数组
+
+        for p in ps:    # 信息提取
+            if p.img != None:
+                imgs.append(ariticle_source_url + p.img['src'])    # 图片链接提取
+            elif re.search('text-align:center', str(p.get('style'))) != None:
+                # 图片标题提取 一般来说两个数组一一对应
+                # 非标准编辑
+                s = ''
+                words = re.findall(r'>(.*?)<', str(p))
+                for j in range(0, len(words)):
+                    s = s + words[j]
+                if s != '':
+                    ss = s.strip()
+                    if ss != '':
+                        img_titles.append(ss)
+            elif re.search('text-align:right', str(p.get('style'))) != None:    # 这里存在很大的bug 如果编辑不够严谨 会出现多作者情况
+                # 非标准编辑
+                s = ''
+                words = re.findall(r'>(.*?)<', str(p))
+                for j in range(0, len(words)):
+                    s = s + words[j]
+                if s != '':
+                    ss = s.strip()
+                    if ss != '':
+                        author = ss    # 作者
+            else:
+                # 非标准编辑
+                s = ''
+                words = re.findall(r'>(.*?)<', str(p))
+                for j in range(0, len(words)):
+                    s = s + words[j]
+                if s != '':
+                    ss = s.strip()
+                    if ss != '':
+                        contents.append(ss)
+        
+        img_tag_soup = BeautifulSoup(img_tag, 'html.parser')
+        img_title_tag_soup = BeautifulSoup(img_title_tag, 'html.parser')
+        content_tag_soup = BeautifulSoup(content_tag, 'html.parser')
+        author_tag_soup = BeautifulSoup(autor_tag, 'html.parser')
+        
+        post_content = ''
+        # 根据情况 图片 图片标题 内容需要循环 在此只是进行测试
+        
+        for j in range(0, len(imgs)):
+            img_tag_soup.find('img')['src'] = imgs[j]
+            post_content = post_content + str(img_tag_soup)
+            try:
+                img_title_tag_soup.find('span').string = img_titles[j]
+                post_content = post_content + str(img_title_tag_soup)
+            except:
+                print('没有图片标题')
+        for j in range(0, len(contents)):
+            content_tag_soup.find('span').string = contents[j]
+            post_content = post_content + str(content_tag_soup)
+                
+        author_tag_soup.find('span').string = author
+        post_content = post_content + str(author_tag_soup)
+            # 非标准编辑
+        '''
+            s = ''
+            words = re.findall(r'>(.*?)<', str(author_tag_soup))
+            for z in range(0, len(words)):
+                s = s + words[z]
+                if s != '':
+                    post_content = post_content + s
+        '''
+        time.sleep(5)
+        tt = '【易信快讯】' + article_titles[i]
+
+        #send_class_topic(session, tt, post_content)    # 测试代码
+        send_institute_topic(session, tt, post_content)
+
+
+
 if __name__ == '__main__':
     session = login()    # 登录响应
-    crowed_html = get_html()    # 爬取相应页面内容
+    upc_html = get_html('http://www.upc.edu.cn/')    # 爬取相应页面内容
+    upc_auto_html = get_html('http://auto.upc.edu.cn/_t140/main.htm')
+
+    send_auto_html(session, upc_auto_html)
 
     # send_feed(session)    # 发布动态
-    basic_egpa(session, crowed_html)
-    build_gpa(session, crowed_html)
+    #basic_egpa(session, upc_html)
+    #build_gpa(session, upc_html)
     
     # 点赞模块
     article_ids = getArticleIds(session)
     for article_id in article_ids:
         up_article(session, article_id)
-    
+
     print('完成时间 ' + get_time())
