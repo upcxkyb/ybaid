@@ -571,7 +571,8 @@ def send_institute_topic(session, title, content):
         'content': content,
         'Sections_id': '0',
         'isNotice': 'false',
-        'dom': '.js-submit'
+        'dom': '.js-submit',
+        'captcha': None
     }
 
     send_topic_url = 'http://www.yiban.cn/forum/article/addAjax'
@@ -580,6 +581,25 @@ def send_institute_topic(session, title, content):
     try:
         if json.loads(send_topic_response.text)['message'] == '操作成功':
             print('机构群话题发布成功')
+        else:
+            print('尝试验证码发布机构群话题')
+            while 1:
+                captchaURL = getCaptchaURL()
+                cap_img = session.get(captchaURL)
+                with open("rawcap.png", 'wb') as fp:    # 服务器下需要更改路径为绝对路径
+                    fp.write(cap_img.content)
+                file_name = captchaDenoise()
+                cap_text = captcha_recon(file_name)
+                if cap_text == '':
+                    continue
+                print('验证码是： '+cap_text)
+                data['captcha'] = cap_text
+                os.remove(file_name)
+                time.sleep(1)
+                response = session.post(send_topic_url, headers=headers, data=data, timeout=10)
+                if json.loads(response.text)['message'] == '操作成功':
+                    print('含验证码发送机构群话题成功')
+                    break
     except:
         print('机构群话题发布失败')
 
@@ -782,11 +802,11 @@ if __name__ == '__main__':
     upc_html = get_html('http://www.upc.edu.cn/')    # 爬取相应页面内容
     upc_auto_html = get_html('http://auto.upc.edu.cn/_t140/main.htm')
 
-    send_auto_html(session, upc_auto_html)
+    #send_auto_html(session, upc_auto_html)
 
     # send_feed(session)    # 发布动态
     #basic_egpa(session, upc_html)
-    #build_gpa(session, upc_html)
+    build_gpa(session, upc_html)
     
     # 点赞模块
     article_ids = getArticleIds(session)

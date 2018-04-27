@@ -46,7 +46,7 @@ def getCaptchaURL():
 def getUserInfo(captcha, keytime, key):
     try:
         config = configparser.ConfigParser()
-        config.read('info.ini')
+        config.read('/root/ybaid/info.ini')
         raw_psw = config['Information']['password']
         Psw = rsaEncrypt(raw_psw, key)
         user_data = {
@@ -571,7 +571,8 @@ def send_institute_topic(session, title, content):
         'content': content,
         'Sections_id': '0',
         'isNotice': 'false',
-        'dom': '.js-submit'
+        'dom': '.js-submit',
+        'captcha': None
     }
 
     send_topic_url = 'http://www.yiban.cn/forum/article/addAjax'
@@ -580,6 +581,25 @@ def send_institute_topic(session, title, content):
     try:
         if json.loads(send_topic_response.text)['message'] == '操作成功':
             print('机构群话题发布成功')
+        else:
+            print('尝试验证码发布机构群话题')
+            while 1:
+                captchaURL = getCaptchaURL()
+                cap_img = session.get(captchaURL)
+                with open("/root/ybaid/rawcap.png", 'wb') as fp:    # 服务器下需要更改路径为绝对路径
+                    fp.write(cap_img.content)
+                file_name = captchaDenoise()
+                cap_text = captcha_recon(file_name)
+                if cap_text == '':
+                    continue
+                print('验证码是： '+cap_text)
+                data['captcha'] = cap_text
+                os.remove(file_name)
+                time.sleep(1)
+                response = session.post(send_topic_url, headers=headers, data=data, timeout=10)
+                if json.loads(response.text)['message'] == '操作成功':
+                    print('含验证码发送机构群话题成功')
+                    break
     except:
         print('机构群话题发布失败')
 
@@ -769,7 +789,7 @@ def send_auto_html(session, html):
                 if s != '':
                     post_content = post_content + s
         '''
-        time.sleep(10)
+        time.sleep(5)
         tt = '【易信快讯】' + article_titles[i]
 
         #send_class_topic(session, tt, post_content)    # 测试代码
