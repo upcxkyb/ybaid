@@ -700,8 +700,8 @@ def send_auto_html(session, html):
 
     for article_time in article_times:
         # 过滤时间 测试时删除即可 只爬取当天的文章 如果之前的没有爬 只需注释掉该代码即可
-        if today_time != article_time:
-            break
+        if today_time != article_time.string:
+            continue
         td_time = article_time.parent    # 存放时间信息标签的父节点
         td_a = td_time.previous_sibling.previous_sibling
         a = td_a.a    # 系列

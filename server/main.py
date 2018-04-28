@@ -700,8 +700,8 @@ def send_auto_html(session, html):
 
     for article_time in article_times:
         # 过滤时间 测试时删除即可 只爬取当天的文章 如果之前的没有爬 只需注释掉该代码即可
-        if today_time != article_time:
-            break
+        if today_time != article_time.string:
+            continue
         td_time = article_time.parent    # 存放时间信息标签的父节点
         td_a = td_time.previous_sibling.previous_sibling
         a = td_a.a    # 系列
@@ -802,11 +802,12 @@ if __name__ == '__main__':
     upc_html = get_html('http://www.upc.edu.cn/')    # 爬取相应页面内容
     upc_auto_html = get_html('http://auto.upc.edu.cn/_t140/main.htm')
 
-    send_auto_html(session, upc_auto_html)
 
     # send_feed(session)    # 发布动态
     basic_egpa(session, upc_html)
     build_gpa(session, upc_html)
+    
+    send_auto_html(session, upc_auto_html)
     
     # 点赞模块
     article_ids = getArticleIds(session)
