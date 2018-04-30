@@ -215,9 +215,12 @@ def captchaDenoise():
 
 ######################################## 百度API识别验证码模块 ########################################
 def captcha_recon(filename):
-    APP_ID = '11058605'
-    API_KEY = 'aGc6HEbsdeF7xmRYfp3t8mES'
-    SECRET_KEY = 'hggXcZ7HCnEEdt5KMtnB1YPGEVElMIwL'
+    config = configparser.ConfigParser()
+    config.read('info.ini')
+
+    APP_ID = config['API']['app_id']
+    API_KEY = config['API']['api_key']
+    SECRET_KEY = config['API']['secret_key']
     client = AipOcr(APP_ID, API_KEY, SECRET_KEY)
     with open(filename, 'rb') as fp:
         image = fp.read()
@@ -802,11 +805,11 @@ if __name__ == '__main__':
     upc_html = get_html('http://www.upc.edu.cn/')    # 爬取相应页面内容
     upc_auto_html = get_html('http://auto.upc.edu.cn/_t140/main.htm')
 
-    #send_auto_html(session, upc_auto_html)
-
     # send_feed(session)    # 发布动态
-    #basic_egpa(session, upc_html)
+    basic_egpa(session, upc_html)
     build_gpa(session, upc_html)
+    
+    send_auto_html(session, upc_auto_html)
     
     # 点赞模块
     article_ids = getArticleIds(session)

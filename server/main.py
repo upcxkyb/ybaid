@@ -215,9 +215,12 @@ def captchaDenoise():
 
 ######################################## 百度API识别验证码模块 ########################################
 def captcha_recon(filename):
-    APP_ID = '11058605'
-    API_KEY = 'aGc6HEbsdeF7xmRYfp3t8mES'
-    SECRET_KEY = 'hggXcZ7HCnEEdt5KMtnB1YPGEVElMIwL'
+    config = configparser.ConfigParser()
+    config.read('/root/ybaid/info.ini')
+
+    APP_ID = config['API']['app_id']
+    API_KEY = config['API']['api_key']
+    SECRET_KEY = config['API']['secret_key']
     client = AipOcr(APP_ID, API_KEY, SECRET_KEY)
     with open(filename, 'rb') as fp:
         image = fp.read()
